@@ -7,7 +7,7 @@ TARGET   = blink
 SRCS     = start.S main.c
 
 ARCH_FLAGS = -march=rv32im_zicsr -mabi=ilp32
-CFLAGS     = $(ARCH_FLAGS) -O2 -Wall -ffreestanding -nostdlib -T link.ld
+CFLAGS     = $(ARCH_FLAGS) -Os -g -Wall -ffreestanding -nostdlib -T link.ld
 LDFLAGS    = $(ARCH_FLAGS) -nostdlib -T link.ld
 
 .PHONY: all clean

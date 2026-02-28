@@ -7,6 +7,16 @@
 // Pattern: walk a single lit LED across all 6 LEDs, then repeat.
 
 #include <stdint.h>
+#include <stddef.h>
+void *memcpy(void *dest, const void *src, size_t n)
+{
+    char *d = dest;
+    const char *s = src;
+    while (n--) {
+        *d++ = *s++;
+    }
+    return dest;
+}
 
 #define GPIO_BASE ((volatile uint32_t *)0x40008000u)
 #define CLK_MHZ   27u
