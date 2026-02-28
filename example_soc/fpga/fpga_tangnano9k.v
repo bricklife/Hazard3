@@ -15,8 +15,19 @@
 // UART is available on PMOD1:
 //   PMOD1 pin 1 (FPGA pin 33) = TX
 //   PMOD1 pin 2 (FPGA pin 30) = RX
+//
+// GPIO[5:0] drives the 6 on-board LEDs (active-low, 1.8 V I/O).
+// A preloaded hex image is supported via the TANGNANO9K_PRELOAD_FILE define,
+// which is set automatically by the Makefile when building with firmware.
 
 `default_nettype none
+
+// TANGNANO9K_PRELOAD_FILE is defined by a generated preload.v included in
+// the synthesis file list. Provide a fallback so the design elaborates
+// cleanly even without a firmware image.
+`ifndef TANGNANO9K_PRELOAD_FILE
+`define TANGNANO9K_PRELOAD_FILE ""
+`endif
 
 module fpga_tangnano9k (
 	input  wire       clk_osc,   // 27 MHz on-board oscillator
@@ -58,23 +69,14 @@ reset_sync trst_sync_u (
 	.rst_n_out (trst_n)
 );
 
-// led[0] blinks to indicate JTAG TCK activity.
-wire tck_led;
-activity_led #(
-	.WIDTH        (1 << 8),
-	.ACTIVE_LEVEL (1'b0)
-) tck_led_u (
-	.clk   (clk_sys),
-	.rst_n (rst_n_sys),
-	.i     (tck),
-	.o     (tck_led)
-);
-// LEDs are active-low: output 1 = off, output 0 = on.
-assign led = {5'b11111, tck_led};
+// GPIO[5:0] → LEDs (active-low: GPIO=1 → LED on).
+wire [31:0] gpio_o;
+assign led = ~gpio_o[5:0];
 
 example_soc #(
 	.CLK_MHZ             (27),
 	.SRAM_DEPTH          (1 << 13),  // 32 kB
+	.PRELOAD_FILE        (`TANGNANO9K_PRELOAD_FILE),
 	.EXTENSION_A         (1),
 	.EXTENSION_C         (0),
 	.EXTENSION_M         (1),
@@ -110,7 +112,8 @@ example_soc #(
 	.tdo     (tdo),
 
 	.uart_tx (uart_tx),
-	.uart_rx (uart_rx)
+	.uart_rx (uart_rx),
+	.gpio_o  (gpio_o)
 );
 
 endmodule

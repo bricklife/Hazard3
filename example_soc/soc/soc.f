@@ -24,4 +24,5 @@ list ../libfpga/mem/ahb_sync_sram.f
 list ../libfpga/busfabric/ahbl_crossbar.f
 file ../libfpga/busfabric/ahbl_to_apb.v
 file ../libfpga/busfabric/apb_splitter.v
+file peri/apb_gpio_out.v
 

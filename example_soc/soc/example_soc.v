@@ -9,9 +9,10 @@
 `default_nettype none
 
 module example_soc #(
-	parameter DTM_TYPE   = "JTAG",  // Can be "JTAG", "ECP5" or "XILINX7"
-	parameter SRAM_DEPTH = 1 << 15, // Default 32 kwords -> 128 kB
-	parameter CLK_MHZ    = 12,      // For timer timebase
+	parameter DTM_TYPE     = "JTAG",  // Can be "JTAG", "ECP5" or "XILINX7"
+	parameter SRAM_DEPTH   = 1 << 15, // Default 32 kwords -> 128 kB
+	parameter CLK_MHZ      = 12,      // For timer timebase
+	parameter PRELOAD_FILE = "",      // Optional hex file to preload SRAM
 
 	`include "hazard3_config.vh"
 ) (
@@ -28,7 +29,8 @@ module example_soc #(
 
 	// IO
 	output wire              uart_tx,
-	input  wire              uart_rx
+	input  wire              uart_rx,
+	output wire [31:0]       gpio_o
 );
 
 // ----------------------------------------------------------------------------
@@ -379,6 +381,7 @@ hazard3_cpu_1port #(
 // - 128 kB SRAM at... 0x0000_0000
 // - System timer at.. 0x4000_0000
 // - UART at.......... 0x4000_4000
+// - GPIO out at...... 0x4000_8000
 
 // AHBL layer
 
@@ -472,6 +475,15 @@ wire [31:0] timer_prdata;
 wire        timer_pready;
 wire        timer_pslverr;
 
+wire        gpio_psel;
+wire        gpio_penable;
+wire        gpio_pwrite;
+wire [15:0] gpio_paddr;
+wire [31:0] gpio_pwdata;
+wire [31:0] gpio_prdata;
+wire        gpio_pready;
+wire        gpio_pslverr;
+
 ahbl_to_apb apb_bridge_u (
 	.clk               (clk),
 	.rst_n             (rst_n),
@@ -500,9 +512,9 @@ ahbl_to_apb apb_bridge_u (
 );
 
 apb_splitter #(
-	.N_SLAVES   (2),
-	.ADDR_MAP   (32'h4000_0000),
-	.ADDR_MASK  (32'hc000_c000)
+	.N_SLAVES   (3),
+	.ADDR_MAP   (48'h8000_4000_0000),
+	.ADDR_MASK  (48'hc000_c000_c000)
 ) inst_apb_splitter (
 	.apbs_paddr   (bridge_paddr),
 	.apbs_psel    (bridge_psel),
@@ -513,14 +525,14 @@ apb_splitter #(
 	.apbs_prdata  (bridge_prdata),
 	.apbs_pslverr (bridge_pslverr),
 
-	.apbm_paddr   ({uart_paddr   , timer_paddr  }),
-	.apbm_psel    ({uart_psel    , timer_psel   }),
-	.apbm_penable ({uart_penable , timer_penable}),
-	.apbm_pwrite  ({uart_pwrite  , timer_pwrite }),
-	.apbm_pwdata  ({uart_pwdata  , timer_pwdata }),
-	.apbm_pready  ({uart_pready  , timer_pready }),
-	.apbm_prdata  ({uart_prdata  , timer_prdata }),
-	.apbm_pslverr ({uart_pslverr , timer_pslverr})
+	.apbm_paddr   ({gpio_paddr   , uart_paddr   , timer_paddr  }),
+	.apbm_psel    ({gpio_psel    , uart_psel    , timer_psel   }),
+	.apbm_penable ({gpio_penable , uart_penable , timer_penable}),
+	.apbm_pwrite  ({gpio_pwrite  , uart_pwrite  , timer_pwrite }),
+	.apbm_pwdata  ({gpio_pwdata  , uart_pwdata  , timer_pwdata }),
+	.apbm_pready  ({gpio_pready  , uart_pready  , timer_pready }),
+	.apbm_prdata  ({gpio_prdata  , uart_prdata  , timer_prdata }),
+	.apbm_pslverr ({gpio_pslverr , uart_pslverr , timer_pslverr})
 );
 
 // ----------------------------------------------------------------------------
@@ -531,7 +543,8 @@ apb_splitter #(
 // zero-initialised so don't leave the little guy hanging too long)
 
 ahb_sync_sram #(
-	.DEPTH (SRAM_DEPTH)
+	.DEPTH        (SRAM_DEPTH),
+	.PRELOAD_FILE (PRELOAD_FILE)
 ) sram0 (
 	.clk               (clk),
 	.rst_n             (rst_n),
@@ -548,6 +561,24 @@ ahb_sync_sram #(
 	.ahbls_hmastlock   (sram0_hmastlock),
 	.ahbls_hwdata      (sram0_hwdata),
 	.ahbls_hrdata      (sram0_hrdata)
+);
+
+apb_gpio_out #(
+	.W_GPIO (32)
+) gpio_u (
+	.clk          (clk),
+	.rst_n        (rst_n),
+
+	.apbs_psel    (gpio_psel),
+	.apbs_penable (gpio_penable),
+	.apbs_pwrite  (gpio_pwrite),
+	.apbs_paddr   (gpio_paddr),
+	.apbs_pwdata  (gpio_pwdata),
+	.apbs_prdata  (gpio_prdata),
+	.apbs_pready  (gpio_pready),
+	.apbs_pslverr (gpio_pslverr),
+
+	.gpio_o       (gpio_o)
 );
 
 uart_mini uart_u (
