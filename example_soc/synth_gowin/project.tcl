@@ -22,6 +22,8 @@ set_device -name ${device_family} ${device_part}
 
 set_option -verilog_std sysv2017
 set_option -print_all_synthesis_warning 1
+set_option -place_option 2
+set_option -route_option 2
 
 foreach d $INCDIRS {
     if {$d ne ""} { set_option -include_path $d }
